@@ -1059,6 +1059,8 @@ UpdateDriveListWorker(VOID)
 
    INT iUpdatePhantom = iUpdateReal ^ 1;
 
+   hEnum = NULL;
+
 
    //
    // GetLogicalDrives simply calls GetDriveType,
@@ -1313,11 +1315,13 @@ EnumRetry:
       rgiDriveReal[iUpdatePhantom][i] = 0;
    }
 
-   if (bOpenEnumSucceed)
+   if (bOpenEnumSucceed) {
       WNetCloseEnum(hEnum);
+   }
 
-   if (pcBuf)
+   if (pcBuf) {
       LocalFree((HANDLE)pcBuf);
+   }
 
 
    PostMessage(hwndFrame, FS_UPDATEDRIVETYPECOMPLETE, (WPARAM)cRealDrives, 0L);
@@ -1688,7 +1692,7 @@ NetLoad(VOID)
    TCHAR szPath[] = SZ_ACOLONSLASH;
 
    if (WNetStat(NS_CONNECT))  {
-      hMPR = LoadLibrary(MPR_DLL);
+      hMPR = LoadSystemLibrary(MPR_DLL);
 
       if (!hMPR)
          return FALSE;
@@ -1736,7 +1740,7 @@ NetLoad(VOID)
 
    if (WNetStat(NS_SHAREDLG)) {
 
-      hNtshrui = LoadLibrary(NTSHRUI_DLL);
+      hNtshrui = LoadSystemLibrary(NTSHRUI_DLL);
 
       if (hNtshrui) {
          lpfnShowShareFolderUI = (PVOID)GetProcAddress(hNtshrui, "ShowShareFolderUI");
@@ -1769,7 +1773,7 @@ NetLoad(VOID)
    // Try loading acledit.  If we fail, then gray out the button and
    // remove the popup menu.
    //
-   hAcledit = LoadLibrary(ACLEDIT_DLL);
+   hAcledit = LoadSystemLibrary(ACLEDIT_DLL);
 
    hMenuFrame = GetMenu(hwndFrame);
 
@@ -2004,7 +2008,7 @@ LoadComdlg(VOID)
    // Let the system handle errors here
    //
    uErrorMode = SetErrorMode(0);
-   hComdlg = LoadLibrary(COMDLG_DLL);
+   hComdlg = LoadSystemLibrary(COMDLG_DLL);
    SetErrorMode(uErrorMode);
 
    if (!hComdlg)
