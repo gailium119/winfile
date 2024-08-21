@@ -218,6 +218,7 @@ GetSettings()
    /* Get the flags out of the INI file. */
    bMinOnRun            = GetPrivateProfileInt(szSettings, szMinOnRun,            bMinOnRun,            szTheINIFile);
    bIndexOnLaunch       = GetPrivateProfileInt(szSettings, szIndexOnLaunch,       bIndexOnLaunch,       szTheINIFile);
+   bIndexHiddenSystem   = GetPrivateProfileInt(szSettings, szIndexHiddenSystem,   bIndexHiddenSystem,   szTheINIFile);
    wTextAttribs         = (WORD)GetPrivateProfileInt(szSettings, szLowerCase,     wTextAttribs,         szTheINIFile);
    bStatusBar           = GetPrivateProfileInt(szSettings, szStatusBar,           bStatusBar,           szTheINIFile);
    bDisableVisualStyles = GetPrivateProfileInt(szSettings, szDisableVisualStyles, bDisableVisualStyles, szTheINIFile);
@@ -731,6 +732,9 @@ CreateSavedWindows(
 {
    WCHAR buf[2*MAXPATHLEN+7*7], key[10];
    WINDOW win;
+   LPTSTR FilePart;
+   DWORD SizeAvailable;
+   DWORD CharsCopied;
 
    //
    // since win.szDir is bigger.
@@ -742,29 +746,52 @@ CreateSavedWindows(
    INT iNumTrees;
 
    //
+   // Initialize window geometry to use system default
+   //
+   win.rc.left = CW_USEDEFAULT;
+   win.rc.top = 0;
+   win.rc.right = win.rc.left + CW_USEDEFAULT;
+   win.rc.bottom = 0;
+   win.nSplit = -1;
+
+   win.dwView = dwNewView;
+   win.dwSort = dwNewSort;
+   win.dwAttribs = dwNewAttribs;
+
+   //
    // make sure this thing exists so we don't hit drives that don't
    // exist any more
    //
    nDirNum = 1;
    iNumTrees = 0;
 
-   if (pszInitialDir == NULL)
+   do
    {
-      do
+      wsprintf(key, szDirKeyFormat, nDirNum++);
+
+      GetPrivateProfileString(szSettings, key, szNULL, buf, COUNTOF(buf), szTheINIFile);
+
+      if (*buf)
       {
-         wsprintf(key, szDirKeyFormat, nDirNum++);
+         GetSavedWindow(buf, &win);
 
-         GetPrivateProfileString(szSettings, key, szNULL, buf, COUNTOF(buf), szTheINIFile);
-
-         if (*buf)
+         if (pszInitialDir == NULL)
          {
-            GetSavedWindow(buf, &win);
+            //
+            // Winfile won't retain any relative paths in the INI file, but if
+            // one was provided externally, convert it into a full path
+            //
+
+            SizeAvailable = COUNTOF(szDir);
+            CharsCopied = GetFullPathName(win.szDir, SizeAvailable, szDir, &FilePart);
+            if (CharsCopied == 0 || CharsCopied >= SizeAvailable || ISUNCPATH(szDir)) {
+               continue;
+            }
+            lstrcpy(win.szDir, szDir);
 
             //
-            // clean off some junk so we
-            // can do this test
+            // clean off some junk so we can do this test
             //
-            lstrcpy(szDir, win.szDir);
             StripFilespec(szDir);
             StripBackslash(szDir);
 
@@ -798,36 +825,54 @@ CreateSavedWindows(
 
             ShowWindow(hwnd, win.sw);
          }
+      }
 
-      } while (*buf);
-   }
+   } while (*buf);
 
    //
    //  If the user requested to open the program with a specific directory,
    //  open it
    //
 
-   if (pszInitialDir != NULL){
+   if (pszInitialDir != NULL)
+   {
+      SizeAvailable = COUNTOF(buf) - (DWORD)wcslen(szStarDotStar) - 1;
+      CharsCopied = GetFullPathName(pszInitialDir, SizeAvailable, buf, &FilePart);
+      if (CharsCopied > 0 &&
+          CharsCopied < SizeAvailable &&
+          !ISUNCPATH(buf) &&
+          CheckDirExists(buf))
+      {
+         AddBackslash(buf);
+         lstrcat(buf, szStarDotStar);
 
-      lstrcpy(buf, pszInitialDir);
-      AddBackslash(buf);
-      lstrcat(buf, szStarDotStar);
+         //
+         // use the settings of the most recent window as defaults
+         //
 
-      //
-      // default to split window
-      //
-      hwnd = CreateTreeWindow(buf, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, -1);
+         dwNewView = win.dwView;
+         dwNewSort = win.dwSort;
+         dwNewAttribs = win.dwAttribs;
 
-      if (!hwnd)
-         return FALSE;
+         hwnd = CreateTreeWindow(buf,
+                                 win.rc.left,
+                                 win.rc.top,
+                                 win.rc.right - win.rc.left,
+                                 win.rc.bottom - win.rc.top,
+                                 win.nSplit);
 
-      //
-      // Default to maximized since the user requested to open a single
-      // directory
-      //
-      ShowWindow(hwnd, SW_MAXIMIZE);
+         if (!hwnd) {
+            return FALSE;
+         }
 
-      iNumTrees++;
+         //
+         // Default to maximized since the user requested to open a single
+         // directory
+         //
+         ShowWindow(hwnd, SW_MAXIMIZE);
+
+         iNumTrees++;
+      }
    }
 
    //
