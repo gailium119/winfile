@@ -7,7 +7,7 @@ copy /y ..\src\%%i\%%h\WinFile.exe temp\Winfile-%%i-%%h.exe
 copy /y ..\src\%%i\%%h\WinFile.pdb temp\Winfile-%%i-%%h.pdb
 for %%j in (ExeView FileSignatureInfo VerifyResources) do (
 copy /y .\%%j\%%i\%%h\%%j.exe temp\%%j-%%i-%%h.exe
-copy /y .\%%j\%%i\%%h\%%j.exe temp\%%j-%%i-%%h.pdb
+copy /y .\%%j\%%i\%%h\%%j.pdb temp\%%j-%%i-%%h.pdb
 )
 )
 )
